@@ -1,76 +1,73 @@
-/// Module: template
-module template::template;
+module dao::SFFC {
+    use sui::balance;
+    use sui::balance::Balance;
+    use sui::coin;
+    use sui::coin::{Coin, from_balance, into_balance};
+    use sui::object;
+    use sui::random;
+    use sui::random::Random;
+    use sui::sui::SUI;
+    use sui::transfer::{share_object, transfer, public_transfer};
+    use sui::tx_context::sender;
+    use std::option;
+    use sui::transfer;
+    use sui::tx_context::{Self, TxContext};
+    use sui::clock::{Self,Clock};
 
-// For Move coding conventions, see
-// https://docs.sui.io/concepts/sui-move-concepts/conventions
+    // 代币合约
+    public struct SFFC has drop {}
 
-// === Imports ===
+    fun init(witness: SFFC, ctx: &mut TxContext) {
+        let (treasury, metadata) =
+            coin::create_currency(witness, 9, b"SFFC", b"", b"", option::none(), ctx);
 
-// === Errors ===
-// Use PascalCase for errors, start with an E and be descriptive.
-// ex: const ENameHasMaxLengthOf64Chars: u64 = 0;
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#errors
+        transfer::public_freeze_object(metadata);
 
-// === Constants ===
+        transfer::public_transfer(treasury, tx_context::sender(ctx))
+    }
 
-// === Structs ===
-// * Describe the properties of your structs.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#struct-property-comments
-// * Do not use 'potato' in the name of structs. The lack of abilities define it as a potato pattern.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#potato-structs
 
-// === Method Aliases ===
+    // 质押合约
+    public struct Stake  has key {
+        id: UID,
+        // 在合约存钱 都要用 Balance 来存
+        amt: Balance<SFFC>
+    }
 
-// === Public-Mutative Functions ===
-// * Name the functions that create data structures as `public fun empty`.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#empty-function
-//
-// * Name the functions that create objects as `pub fun new`.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#new-function
-//
-// * Library modules that share objects should provide two functions:
-// one to create the object `public fun new(ctx:&mut TxContext): Object`
-// and another to share it `public fun share(profile: Profile)`.
-// It allows the caller to access its UID and run custom functionality before sharing it.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#new-function
-//
-// * Name the functions that return a reference as `<PROPERTY-NAME>_mut`, replacing with
-// <PROPERTY-NAME\> the actual name of the property.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#reference-functions
-//
-// * Provide functions to delete objects. Destroy empty objects with the `public fun destroy_empty`
-// Use the `public fun drop` for objects that have types that can be dropped.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#destroy-functions
-//
-// * CRUD functions names
-// `add`, `new`, `drop`, `empty`, `remove`, `destroy_empty`, `to_object_name`, `from_object_name`, `property_name_mut`
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#crud-functions-names
+    public struct AdminCap  has key {
+        id: UID,
+    }
 
-fun init(ctx: &mut TxContext) {
+    const sffc_apy = 0.1;
 
+    fun init_stake(ctx: &mut TxContext) {
+        let stake = Stake {
+            id: object::new(ctx),
+            amt: balance::zero(),
+        };
+
+        // 选择所有权的时候 所以人都可以玩
+        share_object(stake);
+        let admin = AdminCap { id: object::new(ctx) };
+        transfer(admin, ctx.sender());
+    }
+
+    // 质押功能
+    public entry fun add_SFFC(stake: &mut Stake, stake_time_start: clock::timestamp_ms(ctx.clock()), in: Coin<SFFC>, _: &mut TxContext) {
+        let in_amt_balance = coin::into_balance(in);
+        stake.amt.join(in_amt_balance);
+    }
+
+    // 解质押功能 奖励运算待完善
+    public entry fun remove_SFFC(_: &AdminCap, stake: &mut Stake, stake_time_start: clock::timestamp_ms(ctx.clock()), amt: u64, ctx: &mut TxContext) {
+        let out_balance = stake.amt.split(amt);
+        let out_coin = coin::from_balance(out_balance, ctx);
+        public_transfer(out_coin, ctx.sender());
+    }
+    // claim 奖励功能
+    public entry fun claim(stake: &mut Stake,apy: u64, ctx: &mut TxContext) {
+        let out_balance = stake.amt.split(amt);
+        let out_coin = coin::from_balance(out_balance, ctx);
+        public_transfer(out_coin, ctx.sender());
+    }
 }
-
-// === Public-View Functions ===
-// * Name the functions that return a reference as <<PROPERTY-NAME>, replacing with
-// <PROPERTY-NAME\> the actual name of the property.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#reference-functions
-//
-// * Keep your functions pure to maintain composability. Do not use `transfer::transfer` or
-// `transfer::public_transfer` inside core functions.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#pure-functions
-//
-// * CRUD functions names
-// `exists_`, `contains`, `property_name`
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#crud-functions-names
-
-// === Admin Functions ===
-// * In admin-gated functions, the first parameter should be the capability. It helps the autocomplete with user types.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#admin-capability
-//
-// * To maintain composability, use capabilities instead of addresses for access control.
-// https://docs.sui.io/concepts/sui-move-concepts/conventions#access-control
-// === Public-Package Functions ===
-
-// === Private Functions ===
-
-// === Test Functions ===
